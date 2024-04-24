@@ -94,7 +94,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://localhost:8080/api/weather/humidity?humidity=80\n",
+					"raw": "http://localhost:8080/api/weather/humidity?humidity=37\n",
 					"protocol": "http",
 					"host": [
 						"localhost"
@@ -108,7 +108,7 @@
 					"query": [
 						{
 							"key": "humidity",
-							"value": "80\n"
+							"value": "37\n"
 						}
 					]
 				}
@@ -164,6 +164,28 @@
 							"key": "date",
 							"value": "22/04/2024"
 						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Call Data",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080//api/weather/ingest",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"",
+						"api",
+						"weather",
+						"ingest"
 					]
 				}
 			},

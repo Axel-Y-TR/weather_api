@@ -11,6 +11,12 @@ app = Flask(__name__)
 client = MongoClient('172.20.0.2', 27017)
 db = client['weatherdb']
 
+"""
+    GET: Appel les données
+
+    Réponse:
+        - Succès: Liste des données météorologique
+"""
 @app.route('/api/weather/ingest', methods=['GET'])
 def get_ingest_data():
 
@@ -39,7 +45,6 @@ def get_data(lat, lon):
     return get_weather_data(lat, lon, api_key)
 
 def store_weather_data_in_db():
-    #while True:
     try:
         if 'city' not in db.list_collection_names():
             city_collection = db['city']
@@ -72,7 +77,6 @@ def store_weather_data_in_db():
                             "insertion_time": datetime.now()
                         }
                         weather_collection.insert_one(weather_record)
-                        time.sleep(300)
                         logging.info(f"{document['name']} - Succès dans la collecte de données")
                     else:
                         logging.info(f"Impossible de récupérer les données météorologiques pour {document['name']}.")
@@ -89,7 +93,7 @@ from routes import *
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)
-    #store_weather_data_in_db()
+    # store_weather_data_in_db()
 
     # Boucle pour appeler toute les minutes
     while True:
