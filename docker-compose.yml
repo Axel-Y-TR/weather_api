@@ -2,16 +2,53 @@ version: '3.8'  # Spécifie la version de la syntaxe Docker Compose utilisée.
 
 services:  # Définit les différents services de l'application.
 
-  mongodb:
-    image: mongodb/mongodb-community-server:latest  # Utilise la dernière version de l'image MongoDB Community Server.
-    container_name: mongodb  # Nomme le conteneur pour faciliter la référence.
+  # mongodb:
+  #   image: mongodb/mongodb-community-server:latest  # Utilise la dernière version de l'image MongoDB Community Server.
+  #   container_name: mongodb  # Nomme le conteneur pour faciliter la référence.
+  #   networks:
+  #     my_network:
+  #       ipv4_address: 172.20.0.2  # Attribue une adresse IP statique au conteneur sur le réseau défini.
+  #   ports:
+  #     - "27017:27017"  # Expose le port 27017 du conteneur vers le même port sur l'hôte, port standard de MongoDB.
+  #   volumes:
+  #     - mongodb_data:/data/db  # Monte un volume persistant pour les données de MongoDB.
+  
+  cloudera:
+    image: msellami/cloudera-quickstart:latest
+    privileged: true
+    hostname: cloudera
+    container_name: cloudera
+    command: /usr/bin/docker-quickstart
     networks:
       my_network:
         ipv4_address: 172.20.0.2  # Attribue une adresse IP statique au conteneur sur le réseau défini.
     ports:
-      - "27017:27017"  # Expose le port 27017 du conteneur vers le même port sur l'hôte, port standard de MongoDB.
-    volumes:
-      - mongodb_data:/data/db  # Monte un volume persistant pour les données de MongoDB.
+      - "8020:8020"   # HDFS 
+      - "8022:22"     # SSH
+      - "7180:7180"   # Cloudera Manager
+      - "8888:8888"   # Hue
+      - "11000:11000" # Oozie
+      - "50070:50070" # HDFS Rest Namenode
+      - "50075:50075" # HDFS Rest Datanode
+      - "2182:2181"   # Zookeeper
+      - "8088:8088"   # YARN Resource Manager
+      - "19888:19888" # MapReduce Job History
+      - "50030:50030" # MapReduce Job Tracker
+      - "8983:8983"   # Solr
+      - "16000:16000" # Sqoop Metastore
+      - "8042:8042"   # YARN Node Manager
+      - "60010:60010" # HBase Master
+      - "60030:60030" # HBase Region
+      - "9090:9090"   # HBase Thrift
+      - "8080:8080"   # HBase Rest
+      - "7077:7077"   # Spark Master
+      - "3306:3306"   # MYSQL 
+      - "10000:10000" # HiveServer
+      - "21050:21050" # Impala
+    tty: true
+    stdin_open: true
+    volumes: 
+      - /var/shared_cloudera_quickstart:/media/shared_from_local
 
   python_script:
     build:
@@ -19,14 +56,14 @@ services:  # Définit les différents services de l'application.
       dockerfile: dockerfile  # Nom du fichier Dockerfile utilisé pour construire l'image.
     container_name: python_script  # Nomme le conteneur.
     depends_on:
-      - mongodb  # Indique que ce service dépend de `mongodb` et doit attendre son démarrage.
+      - cloudera  # Indique que ce service dépend de `mongodb` et doit attendre son démarrage.
     networks:
       my_network:
         ipv4_address: 172.20.0.3  # Attribue une adresse IP statique au conteneur sur le réseau.
     environment:
       - MONGO_URI=mongodb://mongodb:27017/DB  # Définit une variable d'environnement pour l'URI de MongoDB.
     ports:
-      - "8080:8080"  # Expose le port 8080 pour accès au service API.
+      - "8182:8182"  # Expose le port 8080 pour accès au service API.
 
   dashboard:
     build:
@@ -34,7 +71,7 @@ services:  # Définit les différents services de l'application.
       dockerfile: dockerfile  # Nom du fichier Dockerfile.
     container_name: dashboard  # Nomme le conteneur.
     depends_on:
-      - mongodb  # Dépend de MongoDB.
+      - cloudera  # Dépend de MongoDB.
       - python_script  # Dépend également du script Python, assurant l'ordre de démarrage.
     networks:
       my_network:
