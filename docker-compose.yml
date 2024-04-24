@@ -1,4 +1,4 @@
-version: '3.6'  # Spécifie la version de la syntaxe Docker Compose utilisée.
+version: '3.8'  # Spécifie la version de la syntaxe Docker Compose utilisée.
 
 services:  # Définit les différents services de l'application.
 
@@ -14,7 +14,7 @@ services:  # Définit les différents services de l'application.
   #     - mongodb_data:/data/db  # Monte un volume persistant pour les données de MongoDB.
   
   cloudera:
-    image: cloudera/quickstart
+    image: msellami/cloudera-quickstart:latest
     privileged: true
     hostname: cloudera
     container_name: cloudera
