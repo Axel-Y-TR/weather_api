@@ -8,7 +8,7 @@ from flask import Flask, jsonify
 
 app = Flask(__name__)
 
-connection = happybase.Connection('172.20.0.2', port=9090)  # Connexion à HBase
+connection = happybase.Connection('cloudera', port=9090)  # Connexion à HBase
 
 # Définition de la famille de colonnes pour la table HBase
 column_family = 'weather_data'

@@ -3,9 +3,11 @@ version: '3.8'
 services:
   cloudera:
     image: harisekhon/hbase
+    hostname: cloudera
     container_name: cloudera
     ports:
       - "2181:2181"
+      - "9090:9090"
       - "16000:16000"
       - "16010:16010"
       - "16020:16020"
@@ -46,20 +48,20 @@ services:
       - "8500:8500"
     command: streamlit run dashboard.py --server.port 8500
 
-  hue:
-    image: gethue/hue
-    container_name: hue
-    ports:
-      - "8888:8888" # Port web de Hue
-    environment:
-      - HUE_DATABASE_ENGINE=happybase
-      - HUE_HBASE_HOST=cloudera
-      - HUE_HBASE_PORT=9090
-    depends_on:
-      - cloudera
-    networks:
-      my_network:
-        ipv4_address: 172.20.0.5
+  # hue:
+  #   image: gethue/hue
+  #   container_name: hue
+  #   ports:
+  #     - "8888:8888" # Port web de Hue
+  #   environment:
+  #     - HUE_DATABASE_ENGINE=happybase
+  #     - HUE_HBASE_HOST=cloudera
+  #     - HUE_HBASE_PORT=9090
+  #   depends_on:
+  #     - cloudera
+  #   networks:
+  #     my_network:
+  #       ipv4_address: 172.20.0.5
 
 volumes:
   mongodb_data:
