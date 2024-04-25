@@ -5,10 +5,11 @@ from datetime import datetime
 import requests
 import happybase
 from flask import Flask, jsonify
+from routes import *
 
 app = Flask(__name__)
 
-connection = happybase.Connection('cloudera', port=9090)  # Connexion à HBase
+connection = happybase.Connection('172.20.0.2', port=9090)  # Connexion à HBase
 
 # Définition de la famille de colonnes pour la table HBase
 column_family = 'weather_data'
@@ -45,7 +46,20 @@ def get_data(lat, lon):
     return get_weather_data(lat, lon, api_key)
 
 def store_weather_data_in_db():
+    app.logger.info(app)
     try:
+        if b'weather_data_table' not in connection.tables():  # Vérification si la table existe
+            app.logger.info("La table weather_data_table n'existe pas, création...")
+            connection.create_table(
+                'weather_data_table',
+                {column_family: dict()}  # Spécifiez la famille de colonnes
+            )
+           
+
+        with connection.table(b'weather_data_table').batch(batch_size=1000) as table:
+            # Suite du code pour insérer les données dans la table...
+            pass
+
         with connection.table('weather_data_table').batch(batch_size=1000) as table:  # Accès à la table HBase
             with open('city.json', 'r', encoding='utf-8') as d:
                 data = json.load(d)
@@ -56,10 +70,10 @@ def store_weather_data_in_db():
                         lon = coord.get('lon')
                         if lat is not None and lon is not None:
                             weather_data = get_data(lat, lon)
-                            logging.info('data', weather_data)
+                           
 
                             if weather_data:
-                                row_key = str(city['_id'])
+                                row_key = str(city['id'])
                                 table.put(row_key, {
                                     f"{column_family}:name": city['name'],
                                     f"{column_family}:coord": json.dumps(city['coord']),
@@ -70,21 +84,28 @@ def store_weather_data_in_db():
                                     f"{column_family}:wind_speed": str(weather_data['wind']['speed']),
                                     f"{column_family}:insertion_time": str(datetime.now())
                                 })
-                                logging.info(f"{city['name']} - Succès dans la collecte de données")
+                                app.logger.info("%s - Succès dans la collecte de données", city['name'])
                             else:
-                                logging.info(f"Impossible de récupérer les données météorologiques pour {city['name']}.")
+                                app.logger.info("Impossible de récupérer les données météorologiques pour %s.", city['name'])
                         else:
-                            logging.info(f"La ville {city['name']} ne contient pas de coordonnées valides.")
+                            app.logger.info("La ville %s ne contient pas de coordonnées valides.", city['name'])
                     else:
-                        logging.info(f"La ville {city['name']} ne contient pas de champ 'coord'.")
+                        app.logger.info("La ville %s ne contient pas de champ 'coord'.", city['name'])
+                    
+                
 
         return True
-    except:
-        logging.error("Erreur de connexion à l'API OpenWeatherMap")
+    except requests.exceptions.RequestException as e:
+        app.logger.error("Erreur de connexion à l'API OpenWeatherMap: %s", e)
         return False
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8182)
+    # Créer un logger pour l'application Flask
+    logger = logging.getLogger('app')
+    logger.setLevel(logging.INFO)
+
 
     # Boucle pour appeler toutes les minutes
     while True:

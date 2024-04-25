@@ -1,80 +1,109 @@
-import json
-import logging
-from datetime import datetime
-import requests
-from flask import Flask, jsonify
-import happybase
+from flask import jsonify, request
+from app import app, connection
+from datetime import datetime, timedelta
 
-app = Flask(__name__)
 
-connection = happybase.Connection('172.20.0.2', port=9090)  # Connexion à HBase
+############ Helpers ############
+def format_weather_data(weather_data):
+    """ Formate les données météorologiques."""
+    formatted_data = []
+    for key, data in weather_data.items():
+        formatted_data.append({
+            '_id': key.decode('utf-8'),
+            'city_id': data[b'city_id'].decode('utf-8'),
+            'insertion_time': data[b'insertion_time'].decode('utf-8')
+        })
+    return formatted_data
 
-# Définition de la famille de colonnes pour la table HBase
-column_family = 'weather_data'
-
-def get_weather_data(lat, lon, api_key):
-    base_url = "https://api.openweathermap.org/data/2.5/weather"
-    params = {
-        "lat": lat,
-        "lon": lon,
-        "units": 'metric',
-        "appid": api_key
-    }
+def parse_date(date_str):
+    """ Analyse une chaîne de caractères représentant une date au format 'jour/mois/année'. """
     try:
-        response = requests.get(base_url, params=params)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print("Erreur de connexion:", e)
+        day, month, year = map(int, date_str.split('/'))
+        return datetime(year, month, day)
+    except ValueError:
         return None
 
-def get_data(lat, lon):
-    api_key = "74fba207e3c6e53a8e1b95c9457311a8"
-    return get_weather_data(lat, lon, api_key)
 
-def store_weather_data_in_db():
+
+
+
+
+############ Routes ############
+@app.route('/api/weather/all', methods=['GET'])
+def get_all_weather():
     try:
-        with connection.table('weather_data_table').batch(batch_size=1000) as table:  # Accès à la table HBase
-            with open('city.json', 'r', encoding='utf-8') as d:
-                data = json.load(d)
-                for city in data[:5]:  # Import only the first 5 cities
-                    coord = city.get('coord')
-                    if coord:
-                        lat = coord.get('lat')
-                        lon = coord.get('lon')
-                        if lat is not None and lon is not None:
-                            weather_data = get_data(lat, lon)
-                            logging.info('data', weather_data)
+        table = connection.table('weather_data_table')
+        weather_data = table.scan()
+        formatted_data = format_weather_data(weather_data)
+        return jsonify(formatted_data) if formatted_data else jsonify({"error": "Aucune donnée météorologique disponible"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-                            if weather_data:
-                                row_key = str(city['_id'])
-                                table.put(row_key, {
-                                    f"{column_family}:name": city['name'],
-                                    f"{column_family}:coord": json.dumps(city['coord']),
-                                    f"{column_family}:temp_min": str(weather_data['main']['temp_min']),
-                                    f"{column_family}:temp_max": str(weather_data['main']['temp_max']),
-                                    f"{column_family}:humidity": str(weather_data['main']['humidity']),
-                                    f"{column_family}:pressure": str(weather_data['main']['pressure']),
-                                    f"{column_family}:wind_speed": str(weather_data['wind']['speed']),
-                                    f"{column_family}:insertion_time": str(datetime.now())
-                                })
-                                logging.info(f"{city['name']} - Succès dans la collecte de données")
-                            else:
-                                logging.info(f"Impossible de récupérer les données météorologiques pour {city['name']}.")
-                        else:
-                            logging.info(f"La ville {city['name']} ne contient pas de coordonnées valides.")
-                    else:
-                        logging.info(f"La ville {city['name']} ne contient pas de champ 'coord'.")
+@app.route('/api/weather/humidity', methods=['GET'])
+def get_weather_by_humidity():
+    humidity = request.args.get('humidity', type=int)
+    try:
+        table = connection.table('weather_data_table')
+        weather_data = table.scan(filter="SingleColumnValueFilter('%s', 'humidity', >=, 'binary:%d')" % (column_family, humidity))
+        formatted_data = format_weather_data(weather_data)
+        return jsonify(formatted_data) if formatted_data else jsonify({"error": "Aucune donnée météorologique disponible pour l'humidité spécifiée"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-        return True
-    except:
-        logging.error("Erreur de connexion à l'API OpenWeatherMap")
-        return False
+@app.route('/api/weather/humidityBetween', methods=['GET'])
+def get_weather_by_humidity_range():
+    hum_min = request.args.get('hum_min', type=float)
+    hum_max = request.args.get('hum_max', type=float)
+    try:
+        table = connection.table('weather_data_table')
+        weather_data = table.scan(filter="SingleColumnValueFilter('%s', 'humidity', >=, 'binary:%f') AND SingleColumnValueFilter('%s', 'humidity', <=, 'binary:%f')" % (column_family, hum_min, column_family, hum_max))
+        formatted_data = format_weather_data(weather_data)
+        return jsonify(formatted_data) if formatted_data else jsonify({"error": "Aucune donnée météorologique disponible pour la plage d'humidité spécifiée"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-@app.route('/api/weather/ingest', methods=['GET'])
-def get_ingest_data():
-    weather_data = store_weather_data_in_db()
-    return jsonify({"info": "Succès d'ingestion (chargement de données)"}) if weather_data else jsonify({"error": "Aucune donnée météorologique disponible"})
+@app.route('/api/weather', methods=['GET'])
+def get_weather_by_temp_range():
+    temp_min = request.args.get('temp_min', type=float)
+    temp_max = request.args.get('temp_max', type=float)
+    try:
+        table = connection.table('weather_data_table')
+        weather_data = table.scan(filter="SingleColumnValueFilter('%s', 'temp_min', >=, 'binary:%f') AND SingleColumnValueFilter('%s', 'temp_max', <=, 'binary:%f')" % (column_family, temp_min, column_family, temp_max))
+        formatted_data = format_weather_data(weather_data)
+        return jsonify(formatted_data) if formatted_data else jsonify({"error": "Aucune donnée météorologique disponible pour la plage de température spécifiée"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8182)
+@app.route('/api/weather/by_name', methods=['GET'])
+def get_weather_by_name():
+    city_name = request.args.get('name', type=str)
+    if not city_name:
+        return jsonify({"error": "Le nom de la ville doit être spécifié"}), 400
+    try:
+        table = connection.table('weather_data_table')
+        weather_data = table.scan(filter="SingleColumnValueFilter('%s', 'name', =, 'binary:%s')" % (column_family, city_name))
+        formatted_data = format_weather_data(weather_data)
+        return jsonify(formatted_data) if formatted_data else jsonify({"error": "Aucune donnée météorologique disponible pour la ville spécifiée"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/weather/by_date', methods=['GET'])
+def get_weather_by_date():
+    date_str = request.args.get('date')
+    if not date_str:
+        return jsonify({"error": "Veuillez spécifier une date au format 'jour/mois/année'"}), 400
+
+    date = parse_date(date_str)
+    if not date:
+        return jsonify({"error": "Format de date invalide. Assurez-vous d'utiliser le format 'jour/mois/année'"}), 400
+    
+    try:
+        table = connection.table('weather_data_table')
+        start_date = date.strftime('%Y-%m-%d')
+        end_date = (date + timedelta(days=1)).strftime('%Y-%m-%d')
+        weather_data = table.scan(row_start=start_date, row_stop=end_date)
+        formatted_data = format_weather_data(weather_data)
+        return jsonify(formatted_data) if formatted_data else jsonify({"error": "Aucune donnée météorologique disponible pour la date spécifiée"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
