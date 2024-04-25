@@ -1,15 +1,15 @@
 import json
 import time
 import logging
-from datetime import datetime
+from datetime import datetime,timedelta
 import requests
-import happybase
-from flask import Flask, jsonify
-from routes import *
+# import happybase
+from flask import  jsonify,request
+from routes import app,connection
 
-app = Flask(__name__)
+# app = Flask(__name__)
 
-connection = happybase.Connection('172.20.0.2', port=9090)  # Connexion à HBase
+# connection = happybase.Connection('172.20.0.2', port=9090)  # Connexion à HBase
 
 # Définition de la famille de colonnes pour la table HBase
 column_family = 'weather_data'
@@ -98,7 +98,10 @@ def store_weather_data_in_db():
     except requests.exceptions.RequestException as e:
         app.logger.error("Erreur de connexion à l'API OpenWeatherMap: %s", e)
         return False
+    
 
+
+############ Main ############
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8182)
@@ -107,7 +110,4 @@ if __name__ == '__main__':
     logger.setLevel(logging.INFO)
 
 
-    # Boucle pour appeler toutes les minutes
-    while True:
-        store_weather_data_in_db()
-        time.sleep(60)
+    

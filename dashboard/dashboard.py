@@ -7,8 +7,7 @@ import plotly.express as px
 st.title('Dashboard Climat et ville')
 
 
-
-response = requests.get('http://172.20.0.3:8182/api/weather/all')
+response = requests.get('http://127.0.0.3:8182/api/weather/all')
 
 # Vérifier si la requête a réussi
 if response.status_code == 200:

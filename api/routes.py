@@ -1,19 +1,40 @@
-from flask import jsonify, request
-from app import app, connection
+from flask import Flask, jsonify, request
 from datetime import datetime, timedelta
+import happybase
+
+connection = happybase.Connection('172.20.0.2', port=9090)  # Connexion à HBase
+
+
+app = Flask(__name__)
 
 
 ############ Helpers ############
 def format_weather_data(weather_data):
     """ Formate les données météorologiques."""
     formatted_data = []
-    for key, data in weather_data.items():
+    for data in weather_data:
+        key = data[0].decode('utf-8')  # Convertir la clé en UTF-8
+        value = data[1]  # Récupérer la valeur
         formatted_data.append({
-            '_id': key.decode('utf-8'),
-            'city_id': data[b'city_id'].decode('utf-8'),
-            'insertion_time': data[b'insertion_time'].decode('utf-8')
+            'id': key,
+            'city_name': value.get(b'weather_data:name').decode('utf-8'),  # Utiliser get() pour éviter les erreurs si la clé est absente
+            'insertion_time': value.get(b'weather_data:insertion_time').decode('utf-8'),
+            'temperature_max': value.get(b'weather_data:temp_max').decode('utf-8'),
+            'temperature_min': value.get(b'weather_data:temp_min').decode('utf-8'),
+            'humidity': value.get(b'weather_data:humidity').decode('utf-8'),
+            'wind_speed': value.get(b'weather_data:wind_speed').decode('utf-8'),
+
+            # Utiliser get() pour éviter les erreurs si la clé est absente
         })
     return formatted_data
+
+
+
+
+
+
+
+
 
 def parse_date(date_str):
     """ Analyse une chaîne de caractères représentant une date au format 'jour/mois/année'. """
@@ -33,8 +54,11 @@ def parse_date(date_str):
 def get_all_weather():
     try:
         table = connection.table('weather_data_table')
+        app.logger.info(table)
         weather_data = table.scan()
+        app.logger.info(weather_data)
         formatted_data = format_weather_data(weather_data)
+        app.logger.info(formatted_data)
         return jsonify(formatted_data) if formatted_data else jsonify({"error": "Aucune donnée météorologique disponible"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
