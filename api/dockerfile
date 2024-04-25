@@ -1,20 +1,24 @@
-# Utilise une image de base avec Python
-FROM python:3.9
-
-# Copie les fichiers de l'API dans le conteneur
-COPY . /app
-
-# Définit le répertoire de travail
+# Use an official Python runtime as a parent image
+FROM python:3.9-slim
+ 
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+ 
+# Install system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+ 
+ 
 WORKDIR /app
-
-# Installe les dépendances de compilation C nécessaires
-RUN apt-get update && apt-get install -y gcc
-
-# Installe les dépendances Python
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Expose le port 8080
+ 
+COPY . /app
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
+ 
 EXPOSE 8182
-
-# Commande à exécuter lors du démarrage du conteneur
+ 
 CMD ["python", "app.py"]
